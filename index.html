@@ -49,12 +49,10 @@
         });
 
         socket.on('startGame', (players) => {
-            // Bắt đầu trò chơi
             document.getElementById('message').textContent = `Game started! ${players[0].name} (X) vs ${players[1].name} (O)`;
         });
 
         socket.on('moveMade', ({ x, y, symbol }) => {
-            // Cập nhật bàn cờ
             updateBoard(x, y, symbol);
         });
 
@@ -69,27 +67,39 @@
         });
 
         function drawBoard(board) {
-            // Vẽ bàn cờ từ mảng board
             boardElement.innerHTML = ''; // Xóa bàn cờ hiện tại
-            board.forEach((row, x) => {
-                row.forEach((cell, y) => {
+            for (let x = 0; x < 15; x++) {
+                for (let y = 0; y < 15; y++) {
                     const cellElement = document.createElement('div');
-                    cellElement.textContent = cell || '';
                     cellElement.dataset.x = x;
                     cellElement.dataset.y = y;
+
+                    // Gán sự kiện click cho ô
                     cellElement.onclick = () => {
-                        socket.emit('makeMove', { roomNumber: document.getElementById('roomNumber').value, x, y });
+                        const currentPlayerSymbol = getCurrentPlayerSymbol(); // Lấy ký hiệu của người chơi hiện tại
+                        if (board[x] && board[x][y] === undefined) { // Kiểm tra ô có trống không
+                            socket.emit('makeMove', { roomNumber: document.getElementById('roomNumber').value, x, y });
+                        }
                     };
+
+                    cellElement.textContent = board[x] && board[x][y] || ''; // Hiển thị quân cờ nếu có
                     boardElement.appendChild(cellElement);
-                });
-            });
+                }
+            }
         }
 
         function updateBoard(x, y, symbol) {
             const cell = boardElement.querySelector(`div[data-x='${x}'][data-y='${y}']`);
             if (cell) {
-                cell.textContent = symbol;
+                cell.textContent = symbol; // Cập nhật ký hiệu của quân cờ
             }
+        }
+
+        function getCurrentPlayerSymbol() {
+            // Lógica để xác định ký hiệu của người chơi hiện tại (X hoặc O)
+            // Ví dụ: có thể thêm một biến toàn cục hoặc lưu trong socket để theo dõi
+            // Hiện tại, chúng ta sẽ sử dụng ký hiệu 'X' cho người chơi đầu tiên và 'O' cho người thứ hai
+            return (document.querySelectorAll('#board div').length % 2 === 0) ? 'X' : 'O'; // Kiểm tra xem ai đang chơi
         }
     </script>
 </body>
