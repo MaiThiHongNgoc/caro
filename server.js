@@ -16,6 +16,7 @@ app.get('/', (req, res) => {
 app.use(express.static('public'));
 
 const rooms = {};  // Lưu trạng thái các phòng và người chơi
+const gamesHistory = {};  // Lưu lịch sử các ván chơi
 
 // Khi có kết nối từ người chơi
 io.on('connection', (socket) => {
@@ -29,6 +30,7 @@ io.on('connection', (socket) => {
         board: [],
         currentTurn: 'X'
       };
+      gamesHistory[roomNumber] = [];  // Khởi tạo lịch sử cho phòng mới
     }
 
     // Kiểm tra xem phòng đã đủ 2 người chơi chưa
@@ -42,6 +44,11 @@ io.on('connection', (socket) => {
 
     socket.join(roomNumber);
     socket.emit('roomJoined', { roomNumber, board: rooms[roomNumber].board });
+
+    // Gửi lịch sử ván chơi khi người chơi tham gia
+    if (gamesHistory[roomNumber].length > 0) {
+      socket.emit('gameHistory', gamesHistory[roomNumber]);
+    }
 
     if (rooms[roomNumber].players.length === 2) {
       io.to(roomNumber).emit('startGame', rooms[roomNumber].players);
@@ -62,10 +69,14 @@ io.on('connection', (socket) => {
     room.board[x][y] = player.symbol;
     io.to(roomNumber).emit('moveMade', { x, y, symbol: player.symbol });
 
+    // Lưu lịch sử di chuyển
+    gamesHistory[roomNumber].push({ x, y, symbol: player.symbol });
+
     // Kiểm tra xem người chơi có thắng không
     if (checkWin(room.board, x, y, player.symbol)) {
       io.to(roomNumber).emit('gameOver', { winner: player.name });
       delete rooms[roomNumber];  // Xóa phòng khi có người thắng
+      delete gamesHistory[roomNumber];  // Xóa lịch sử khi ván chơi kết thúc
     } else {
       // Đổi lượt
       room.currentTurn = room.currentTurn === 'X' ? 'O' : 'X';
@@ -80,6 +91,7 @@ io.on('connection', (socket) => {
       io.to(roomNumber).emit('playerLeft');
       if (rooms[roomNumber].players.length === 0) {
         delete rooms[roomNumber];  // Xóa phòng nếu không còn người chơi
+        delete gamesHistory[roomNumber];  // Xóa lịch sử phòng
       }
     }
   });

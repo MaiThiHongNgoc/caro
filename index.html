@@ -23,67 +23,74 @@
     }
   </style>
 </head>
-<body>
-  <h1>Game Cờ Caro</h1>
-  <div>
-    <label for="playerName">Tên người chơi:</label>
-    <input type="text" id="playerName">
-    <label for="roomNumber">Số phòng:</label>
-    <input type="text" id="roomNumber">
-    <button id="joinRoom">Tham gia phòng</button>
-  </div>
+<body></body>
+    <div id="gameArea">
+        <h1>Caro Game</h1>
+        <input type="text" id="playerName" placeholder="Enter your name">
+        <input type="text" id="roomNumber" placeholder="Enter room number">
+        <button id="joinRoomBtn">Join Room</button>
+        <div id="board"></div>
+        <div id="message"></div>
+    </div>
 
-  <div id="game" style="display: none;">
-    <h2 id="gameInfo"></h2>
-    <div id="board"></div>
-  </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const boardElement = document.getElementById('board');
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+        document.getElementById('joinRoomBtn').onclick = () => {
+            const playerName = document.getElementById('playerName').value;
+            const roomNumber = document.getElementById('roomNumber').value;
+            socket.emit('joinRoom', { playerName, roomNumber });
+        };
 
-    document.getElementById('joinRoom').addEventListener('click', () => {
-      const playerName = document.getElementById('playerName').value;
-      const roomNumber = document.getElementById('roomNumber').value;
+        socket.on('roomJoined', ({ roomNumber, board }) => {
+            drawBoard(board);
+        });
 
-      socket.emit('joinRoom', { playerName, roomNumber });
-    });
+        socket.on('startGame', (players) => {
+            // Bắt đầu trò chơi
+            document.getElementById('message').textContent = `Game started! ${players[0].name} (X) vs ${players[1].name} (O)`;
+        });
 
-    socket.on('roomJoined', ({ roomNumber, board }) => {
-      document.getElementById('game').style.display = 'block';
-      document.getElementById('gameInfo').innerText = `Phòng: ${roomNumber}`;
-      renderBoard(board);
-    });
+        socket.on('moveMade', ({ x, y, symbol }) => {
+            // Cập nhật bàn cờ
+            updateBoard(x, y, symbol);
+        });
 
-    socket.on('startGame', (players) => {
-      alert('Trò chơi bắt đầu!');
-    });
+        socket.on('gameOver', ({ winner }) => {
+            document.getElementById('message').textContent = `Game over! Winner: ${winner}`;
+        });
 
-    socket.on('moveMade', ({ x, y, symbol }) => {
-      const cell = document.getElementById(`cell-${x}-${y}`);
-      if (cell) cell.innerText = symbol;
-    });
+        socket.on('gameHistory', (history) => {
+            history.forEach(move => {
+                updateBoard(move.x, move.y, move.symbol);
+            });
+        });
 
-    socket.on('gameOver', ({ winner }) => {
-      alert(`${winner} thắng cuộc!`);
-    });
-
-    function renderBoard(board) {
-      const boardEl = document.getElementById('board');
-      boardEl.innerHTML = '';
-      for (let x = 0; x < 20; x++) {
-        for (let y = 0; y < 20; y++) {
-          const cell = document.createElement('div');
-          cell.classList.add('cell');
-          cell.id = `cell-${x}-${y}`;
-          cell.addEventListener('click', () => {
-            socket.emit('makeMove', { roomNumber: document.getElementById('roomNumber').value, x, y });
-          });
-          boardEl.appendChild(cell);
-          if (board[x] && board[x][y]) cell.innerText = board[x][y];
+        function drawBoard(board) {
+            // Vẽ bàn cờ từ mảng board
+            boardElement.innerHTML = ''; // Xóa bàn cờ hiện tại
+            board.forEach((row, x) => {
+                row.forEach((cell, y) => {
+                    const cellElement = document.createElement('div');
+                    cellElement.textContent = cell || '';
+                    cellElement.dataset.x = x;
+                    cellElement.dataset.y = y;
+                    cellElement.onclick = () => {
+                        socket.emit('makeMove', { roomNumber: document.getElementById('roomNumber').value, x, y });
+                    };
+                    boardElement.appendChild(cellElement);
+                });
+            });
         }
-      }
-    }
-  </script>
+
+        function updateBoard(x, y, symbol) {
+            const cell = boardElement.querySelector(`div[data-x='${x}'][data-y='${y}']`);
+            if (cell) {
+                cell.textContent = symbol;
+            }
+        }
+    </script>
 </body>
 </html>
