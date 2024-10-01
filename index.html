@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Caro</title>
+    <style>
+        body { font-family: Arial, sans-serif; flex-direction: column; align-items: center; }
+
+        h1 { text-align: center; }
+
+        .player-info { display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 800px; }
+
+        .player { display: flex; flex-direction: column; align-items: center; }
+
+        .board { display: grid; grid-template-columns: repeat(3, 100px); gap: 5px; margin: 0 20px; }
+
+        .cell { width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; font-size: 2rem; border: 1px solid black; cursor: pointer; }
+        
+        .cell:hover { background-color: #f0f0f0; } /* Hover effect */
+
+        .hidden { display: none; }
+
+        .winner { color: red; font-size: 1.5rem; text-align: center; }
+    </style>
+</head>
+<body>
+    <h1>Game Caro</h1>
+    <button id="playWithAi">Chơi với máy</button>
+    <button id="createRoom">Tạo phòng chơi với bạn</button>
+    <input type="text" id="roomIdInput" placeholder="Nhập ID phòng">
+    <button id="joinRoom">Tham gia phòng</button>
+
+    <div id="gameArea" class="hidden">
+        <div class="player-info">
+            <div class="player">
+                <img src="player1.png" alt="Người chơi 1" class="player-image">
+                <div class="score" id="score1">0</div>
+            </div>
+            <div class="board" id="board"></div>
+            <div class="player">
+                <img src="player2.png" alt="Người chơi 2" class="player-image">
+                <div class="score" id="score2">0</div>
+            </div>
+        </div>
+        <div id="result" class="winner"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const boardEl = document.getElementById('board');
+        const gameArea = document.getElementById('gameArea');
+        const resultEl = document.getElementById('result');
+
+        const createRoomBtn = document.getElementById('createRoom');
+        const joinRoomBtn = document.getElementById('joinRoom');
+        const roomIdInput = document.getElementById('roomIdInput');
+        const playWithAiBtn = document.getElementById('playWithAi');
+
+        let currentRoomId;
+
+        function renderBoard(board) {
+            boardEl.innerHTML = '';
+            board.forEach((cell, index) => {
+                const cellEl = document.createElement('div');
+                cellEl.classList.add('cell');
+                cellEl.innerText = cell || '';
+                cellEl.addEventListener('click', () => {
+                    // Only emit move if game is active
+                    if (!resultEl.innerText) {
+                        socket.emit('move', { roomId: currentRoomId, index });
+                    }
+                });
+                boardEl.appendChild(cellEl);
+            });
+        }
+
+        createRoomBtn.addEventListener('click', () => {
+            const roomId = prompt('Nhập ID phòng muốn tạo:');
+            socket.emit('createRoom', roomId);
+            currentRoomId = roomId;
+        });
+
+        joinRoomBtn.addEventListener('click', () => {
+            const roomId = roomIdInput.value;
+            socket.emit('joinRoom', roomId);
+            currentRoomId = roomId;
+        });
+
+        playWithAiBtn.addEventListener('click', () => {
+            socket.emit('playWithAi');
+            gameArea.classList.remove('hidden');
+        });
+
+        socket.on('startGame', (mode) => {
+            gameArea.classList.remove('hidden');
+            renderBoard(Array(9).fill(null));
+            resultEl.innerText = ''; // Reset kết quả mỗi khi bắt đầu game
+
+            if (mode === 'AI') {
+                // Khi chơi với AI, thay vì 'move' thì sẽ là 'aiMove'
+                boardEl.addEventListener('click', (event) => {
+                    const cellIndex = Array.from(boardEl.children).indexOf(event.target);
+                    if (event.target.classList.contains('cell') && !event.target.innerText) {
+                        socket.emit('aiMove', cellIndex);
+                    }
+                });
+            }
+        });
+
+        socket.on('updateBoard', (board) => {
+            renderBoard(board);
+        });
+
+        socket.on('gameOver', ({ winner, scores }) => {
+            if (winner === null) {
+                resultEl.innerText = "Hòa!";
+            } else {
+                resultEl.innerText = winner === 0 ? "Người chơi X thắng!" : "AI thắng!";
+            }
+
+            // Cập nhật điểm số cho người chơi và AI
+            document.getElementById('score1').innerText = scores.player || scores.player1;
+            document.getElementById('score2').innerText = scores.ai || scores.player2;
+        });
+
+        socket.on('roomFull', () => {
+            alert('Phòng đã đầy!');
+        });
+
+        socket.on('roomCreated', (roomId) => {
+            alert(`Phòng ${roomId} đã được tạo!`);
+        });
+    </script>
+</body>
+</html>
