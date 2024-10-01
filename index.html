@@ -48,11 +48,24 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        const socket = io();
+        const socket = io('https://caro-grrw.onrender.com/'); // Đổi URL thành URL của ứng dụng của bạn
+
+        // Lắng nghe sự kiện từ server
+        socket.on('roomFull', (roomId) => {
+            alert(`Phòng ${roomId} đã đầy! Vui lòng chọn phòng khác.`);
+        });
+
+        socket.on('roomNotFound', (roomId) => {
+            alert(`Phòng ${roomId} không tồn tại! Vui lòng kiểm tra lại.`);
+        });
+
+        socket.on('roomCreated', (roomId) => {
+            alert(`Phòng ${roomId} đã được tạo! Chờ người chơi khác tham gia.`);
+        });
+
         const boardEl = document.getElementById('board');
         const gameArea = document.getElementById('gameArea');
         const resultEl = document.getElementById('result');
-
         const createRoomBtn = document.getElementById('createRoom');
         const joinRoomBtn = document.getElementById('joinRoom');
         const roomIdInput = document.getElementById('roomIdInput');
@@ -67,7 +80,7 @@
                 cellEl.classList.add('cell');
                 cellEl.innerText = cell || '';
                 cellEl.addEventListener('click', () => {
-                    // Only emit move if game is active
+                    // Chỉ phát đi di chuyển nếu trò chơi đang hoạt động
                     if (!resultEl.innerText) {
                         socket.emit('move', { roomId: currentRoomId, index });
                     }
@@ -78,14 +91,22 @@
 
         createRoomBtn.addEventListener('click', () => {
             const roomId = prompt('Nhập ID phòng muốn tạo:');
-            socket.emit('createRoom', roomId);
-            currentRoomId = roomId;
+            if (roomId) {
+                socket.emit('createRoom', roomId);
+                currentRoomId = roomId;
+            } else {
+                alert('Vui lòng nhập ID phòng.');
+            }
         });
 
         joinRoomBtn.addEventListener('click', () => {
-            const roomId = roomIdInput.value;
-            socket.emit('joinRoom', roomId);
-            currentRoomId = roomId;
+            const roomId = roomIdInput.value.trim();
+            if (roomId) {
+                socket.emit('joinRoom', roomId);
+                currentRoomId = roomId;
+            } else {
+                alert('Vui lòng nhập ID phòng.');
+            }
         });
 
         playWithAiBtn.addEventListener('click', () => {
@@ -99,7 +120,6 @@
             resultEl.innerText = ''; // Reset kết quả mỗi khi bắt đầu game
 
             if (mode === 'AI') {
-                // Khi chơi với AI, thay vì 'move' thì sẽ là 'aiMove'
                 boardEl.addEventListener('click', (event) => {
                     const cellIndex = Array.from(boardEl.children).indexOf(event.target);
                     if (event.target.classList.contains('cell') && !event.target.innerText) {
@@ -117,20 +137,12 @@
             if (winner === null) {
                 resultEl.innerText = "Hòa!";
             } else {
-                resultEl.innerText = winner === 0 ? "Người chơi X thắng!" : "AI thắng!";
+                resultEl.innerText = winner === 0 ? "Người chơi X thắng!" : "Người chơi O thắng!";
             }
 
-            // Cập nhật điểm số cho người chơi và AI
+            // Cập nhật điểm số cho người chơi
             document.getElementById('score1').innerText = scores.player || scores.player1;
             document.getElementById('score2').innerText = scores.ai || scores.player2;
-        });
-
-        socket.on('roomFull', () => {
-            alert('Phòng đã đầy!');
-        });
-
-        socket.on('roomCreated', (roomId) => {
-            alert(`Phòng ${roomId} đã được tạo!`);
         });
     </script>
 </body>

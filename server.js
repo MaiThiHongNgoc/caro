@@ -28,16 +28,40 @@ io.on('connection', (socket) => {
     });
 
     // Join a room
-    socket.on('joinRoom', (roomId) => {
+    // Create a room
+socket.on('createRoom', (roomId) => {
+    if (!rooms[roomId]) {
+        socket.join(roomId);
+        rooms[roomId] = { players: [socket.id], board: Array(9).fill(null), turn: 0, scores: { player1: 0, player2: 0 } };
+        socket.emit('roomCreated', roomId);
+    } else {
+        // Nếu phòng đã tồn tại, kiểm tra số lượng người chơi
         const room = rooms[roomId];
-        if (room && room.players.length === 1) {
+        if (room.players.length === 2) {
+            socket.emit('roomFull', roomId); // Phòng đã đầy
+        } else {
+            socket.join(roomId);
+            room.players.push(socket.id);
+            io.to(roomId).emit('startGame', room.players);
+        }
+    }
+});
+// Join a room
+socket.on('joinRoom', (roomId) => {
+    const room = rooms[roomId];
+    if (room) {
+        if (room.players.length < 2) {
             socket.join(roomId);
             room.players.push(socket.id);
             io.to(roomId).emit('startGame', room.players);
         } else {
-            socket.emit('roomFull');
+            socket.emit('roomFull', roomId); // Phòng đã đầy
         }
-    });
+    } else {
+        socket.emit('roomNotFound', roomId); // Phòng không tồn tại
+    }
+});
+
 
     // Player move
     socket.on('move', (data) => {
